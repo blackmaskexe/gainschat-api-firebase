@@ -109,14 +109,28 @@ exports.postUserLog = async (req, res, next) => {
   try {
     await connectDb();
 
-    const interpretedArray = await interpretUserLog(
-      req.body.logMessage,
-      req.body.oldChatHistory
-    );
+    const { logMessage, oldChatHistory, userId, localDate } = req.body;
+
+    // AI interpretation with timeout and retry logic
+    let interpretedArray;
+    try {
+      interpretedArray = await Promise.race([
+        interpretUserLog(logMessage, oldChatHistory),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("AI_TIMEOUT")), 30000)
+        ),
+      ]);
+    } catch (aiError) {
+      console.error("AI interpretation failed:", aiError);
+      return res.json({
+        success: false,
+        botMessage: "Yo, my brain's having a moment 🧠💀 Try again in a sec!",
+      });
+    }
 
     if (interpretedArray && interpretedArray.length === 5) {
       const logData = {
-        userId: req.body.userId,
+        userId: userId,
         workoutId: new Date().toISOString().split("T")[0],
         exercise: {
           exerciseId: new mongodb.ObjectId(interpretedArray[1]),
@@ -124,7 +138,7 @@ exports.postUserLog = async (req, res, next) => {
         },
         exerciseWeight: interpretedArray[2],
         exerciseReps: interpretedArray[3],
-        date: new Date(req.body.localDate),
+        date: new Date(localDate),
       };
 
       const userLog = await new UserLogsModel(logData).save();

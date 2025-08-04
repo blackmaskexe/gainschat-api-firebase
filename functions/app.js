@@ -5,11 +5,16 @@ const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
 
 const DB_URI = defineSecret("DB_URI"); // matches your secret name
 
 const adminRoutes = require("./routes/admin");
 const userRoutes = require("./routes/users");
+
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 const app = express();
 
